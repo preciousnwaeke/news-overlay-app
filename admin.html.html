@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Overlay Control Panel</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
+    .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    h2, h3 { margin-top: 0; }
+    input[type="text"], textarea { width: 100%; padding: 8px; margin: 6px 0 16px; box-sizing: border-box; }
+    .slide-box { border: 1px dashed #ccc; padding: 12px; margin-bottom: 12px; background: #fafafa; position: relative; }
+    button { padding: 10px 18px; background: #C8272B; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #a51f22; }
+    .btn-secondary { background: #555; }
+    .btn-secondary:hover { background: #333; }
+    .btn-danger { background: #d9534f; float: right; padding: 4px 8px; }
+  </style>
+</head>
+<body>
+
+  <h1>News Overlay Controller</h1>
+
+  <div class="card">
+    <h2>Main Headline</h2>
+    <input type="text" id="video1Headline" placeholder="Main Headline Text">
+
+    <h2>Ticker Message</h2>
+    <input type="text" id="ticker" placeholder="Running ticker text">
+  </div>
+
+  <div class="card">
+    <h2>Secondary Feed Rotations (20s Cycle)</h2>
+    <div id="slidesContainer"></div>
+    <button type="button" class="btn-secondary" onclick="addSlide()">+ Add Secondary Slide</button>
+  </div>
+
+  <button type="button" onclick="sendUpdate()">PUSH LIVE UPDATES</button>
+
+  <script>
+    const socket = io();
+
+    socket.on('state-update', (state) => {
+      document.getElementById('video1Headline').value = state.video1Headline;
+      document.getElementById('ticker').value = state.ticker;
+      
+      const container = document.getElementById('slidesContainer');
+      container.innerHTML = '';
+      (state.video2Rotations || []).forEach(slide => addSlide(slide.headline, slide.info));
+    });
+
+    function addSlide(headline = '', info = []) {
+      const container = document.getElementById('slidesContainer');
+      const div = document.createElement('div');
+      div.className = 'slide-box';
+      div.innerHTML = `
+        <button class="btn-danger" onclick="this.parentElement.remove()">Delete</button>
+        <h3>Slide</h3>
+        <label>Headline:</label>
+        <input type="text" class="slide-headline" value="${headline}">
+        <label>Bullet Points (One per line):</label>
+        <textarea class="slide-info" rows="3">${info.join('\n')}</textarea>
+      `;
+      container.appendChild(div);
+    }
+
+    function sendUpdate() {
+      const slides = [];
+      document.querySelectorAll('.slide-box').forEach(box => {
+        const headline = box.querySelector('.slide-headline').value;
+        const infoRaw = box.querySelector('.slide-info').value;
+        const info = infoRaw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+        slides.push({ headline, info });
+      });
+
+      const payload = {
+        video1Headline: document.getElementById('video1Headline').value,
+        ticker: document.getElementById('ticker').value,
+        video2Rotations: slides
+      };
+
+      socket.emit('update-overlay', payload);
+      alert('Overlay Updated Live!');
+    }
+  </script>
+</body>
+</html>

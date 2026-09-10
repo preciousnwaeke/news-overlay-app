@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Two-Feed News Overlay</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  :root{
+    --bg-offwhite: #F6F4EF;
+    --headline-red: #C8272B;
+    --ink: #17181A;
+    --ink-soft: #4B4D52;
+    --rule: rgba(23,24,26,0.12);
+  }
+
+  html,body{
+    margin:0; padding:0; width:1920px; height:1080px; overflow:hidden;
+    background:transparent; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+
+  .stage{ position:relative; width:1920px; height:1080px; background:var(--bg-offwhite); }
+
+  .cam{ position:absolute; background:transparent; }
+  .stage.show-guides .cam{ outline:2px dashed rgba(23,24,26,0.55); outline-offset:-2px; }
+  .stage.show-guides .cam::after{
+    content:attr(data-label); position:absolute; top:12px; left:12px; font-size:15px;
+    color:rgba(23,24,26,0.55); background:rgba(246,244,239,0.85); padding:4px 10px; border-radius:3px;
+  }
+
+  .cam-main{ left:108px; top:161px; width:1068px; height:658px; }
+  .cam-secondary{ left:1204px; top:161px; width:594px; height:329px; }
+
+  .info-panel{ position:absolute; left:1204px; top:508px; width:594px; transition: opacity 0.3s ease; }
+  .info-panel h2{ margin:0 0 12px 0; font-size:26px; font-weight:700; color:var(--ink); }
+  .info-panel ul{ margin:0; padding:0; list-style:none; }
+  .info-panel li{ font-size:19px; line-height:1.5; color:var(--ink-soft); padding:6px 0; border-top:1px solid var(--rule); }
+  .info-panel li:first-child{ border-top:none; }
+
+  .headline-bar{ position:absolute; left:108px; top:857px; width:1812px; height:110px; background:var(--headline-red); display:flex; align-items:center; padding:0 32px; box-sizing:border-box; }
+  .headline-bar h1{ margin:0; font-size:40px; font-weight:700; color:#FFFFFF; }
+
+  .ticker-wrap{ position:absolute; left:108px; top:1005px; width:1812px; height:44px; overflow:hidden; }
+  .ticker-track{ display:flex; white-space:nowrap; position:absolute; top:0; left:0; height:100%; align-items:center; animation: ticker-scroll linear infinite; }
+  .ticker-track span{ font-size:22px; color:var(--ink); padding-right:90px; }
+  @keyframes ticker-scroll{ from{ transform: translateX(0); } to{ transform: translateX(-50%); } }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <div class="cam cam-main" data-label="CAM 1 — main feed"></div>
+  <div class="cam cam-secondary" data-label="CAM 2 — secondary feed"></div>
+
+  <div class="info-panel" id="infoPanel">
+    <h2 id="video2Headline"></h2>
+    <ul id="video2Info"></ul>
+  </div>
+
+  <div class="headline-bar">
+    <h1 id="video1Headline"></h1>
+  </div>
+
+  <div class="ticker-wrap">
+    <div class="ticker-track" id="tickerTrack"></div>
+  </div>
+</div>
+
+<script>
+  const socket = io();
+  let rotations = [];
+  let currentRotationIndex = 0;
+  let rotationTimer = null;
+
+  socket.on('state-update', (data) => {
+    // 1. Update Main Headline
+    document.getElementById('video1Headline').textContent = data.video1Headline;
+
+    // 2. Update Ticker Text
+    const track = document.getElementById('tickerTrack');
+    if (track.dataset.currentTicker !== data.ticker) {
+      track.dataset.currentTicker = data.ticker;
+      track.innerHTML = '';
+      const span1 = document.createElement('span');
+      span1.textContent = data.ticker;
+      const span2 = document.createElement('span');
+      span2.textContent = data.ticker;
+      track.appendChild(span1);
+      track.appendChild(span2);
+
+      const singleWidth = span1.getBoundingClientRect().width;
+      const duration = singleWidth / 140; // 140px per second
+      track.style.animationDuration = duration + 's';
+    }
+
+    // 3. Update Secondary Panel Rotations
+    rotations = data.video2Rotations || [];
+    currentRotationIndex = 0;
+    renderSecondaryPanel(currentRotationIndex);
+
+    // Reset rotation timer (20-second interval)
+    if (rotationTimer) clearInterval(rotationTimer);
+    if (rotations.length > 0) {
+      rotationTimer = setInterval(() => {
+        currentRotationIndex = (currentRotationIndex + 1) % rotations.length;
+        renderSecondaryPanel(currentRotationIndex);
+      }, 20000);
+    }
+  });
+
+  function renderSecondaryPanel(index) {
+    if (!rotations || rotations.length === 0) return;
+    const panel = document.getElementById('infoPanel');
+    const data = rotations[index];
+
+    // Fade out transition
+    panel.style.opacity = '0';
+    setTimeout(() => {
+      document.getElementById('video2Headline').textContent = data.headline;
+      const list = document.getElementById('video2Info');
+      list.innerHTML = '';
+      data.info.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        list.appendChild(li);
+      });
+      panel.style.opacity = '1';
+    }, 300);
+  }
+
+  // OBS alignment mode guide
+  if (new URLSearchParams(window.location.search).get('guide') === '1') {
+    document.getElementById('stage').classList.add('show-guides');
+  }
+</script>
+
+</body>
+</html>
