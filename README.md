@@ -16,7 +16,9 @@ Plaintext
 ├── scripts/            # JS handlers for dynamic text and ticker routing
 ├── template.html       # Primary local browser source file for OBS
 └── README.md           # Project documentation
+
 Getting Started
+
 Prerequisites
 OBS Studio (Version 28.0 or higher recommended)
 
@@ -26,10 +28,13 @@ Installation
 Clone or Download the Repository:
 
 Bash
-git clone https://github.com/your-username/your-repo-name.git
+git clone https://github.com/preciousnwaeke/news-overlay-app
+
 Extract Files: Place the project folder in a dedicated directory on your local machine.
 
+
 Setting Up in OBS Studio
+
 Open OBS Studio.
 
 In your preferred Scene, click the + button under Sources and select Browser.
